@@ -1,17 +1,11 @@
 from tkinter import *
-
-
+import requests
 
 registered_name = None
 registered_email = None
 registered_password = None
 
-# ---------- Window switching function ----------
-
-
-
-
-
+# ---------- Window switching functions ----------
 def show_register():
     login_frame.pack_forget()
     register_frame.pack(pady=20)
@@ -43,14 +37,9 @@ def submit_registration():
         print(f"Registered: {registered_name}, {registered_email}")
         show_login()
 
-
-
 def try_sign_in():
     email = email_entry.get()
     password = password_entry.get()
-
-    print(f"Введено: email={email}, password={password}")
-    print(f"Ожидается: email={registered_email}, password={registered_password}")
 
     if not is_registered:
         print("Please register first!")
@@ -61,15 +50,9 @@ def try_sign_in():
     else:
         print("Invalid email or password!")
 
-
-
-
-
-
-
 # ---------- Main window ----------
 w = Tk()
-is_registered = False  
+is_registered = False
 
 w.title("NoDelay")
 w.geometry("360x600")
@@ -88,20 +71,14 @@ form.pack(pady=10)
 
 Label(form, text="Email").pack(anchor="w")
 email_entry = Entry(form, width=30)
-#email_entry.insert(0, "Value")
 email_entry.pack(pady=5)
 
 Label(form, text="Password").pack(anchor="w")
 password_entry = Entry(form, show="*", width=30)
-#password_entry.insert(0, "Value")
 password_entry.pack(pady=5)
 
 Button(form, text="Sign In", bg="black", fg="white", width=30, command=try_sign_in).pack(pady=10)
-
-
 Button(form, text="Registration", relief="flat", fg="blue", cursor="hand2", command=show_register).pack()
-
-
 desc_text = (
     "\nNoDelay helps you beat procrastination and stay productive. Create your task list, "
     "start a focus session, and track your progress. With a simple and motivating design, "
@@ -109,19 +86,17 @@ desc_text = (
 )
 Label(login_frame, text=desc_text, wraplength=320, font=("Helvetica", 9), justify="left").pack(pady=(20, 0))
 
+
 login_frame.pack()
 
 # ---------- Daily Goals Frame ----------
-
-
 goals_frame = Frame(w)
 
-def show_daily_goals():
-    login_frame.pack_forget()
-    goals_frame.pack(pady=20)
+quote_label = Label(goals_frame, text="", wraplength=300, font=("Helvetica", 9, "italic"))
+quote_label.pack(pady=10)
 
 Label(goals_frame, text="⚠️", font=("Helvetica", 24)).pack()
-Label(goals_frame, text="Whats our plan\nfor today?", font=("Helvetica", 16, "bold")).pack(pady=10)
+Label(goals_frame, text="What's our plan\nfor today?", font=("Helvetica", 16, "bold")).pack(pady=10)
 
 goals_card = Frame(goals_frame, bd=1, relief="solid", padx=10, pady=10)
 goals_card.pack(pady=20)
@@ -149,17 +124,10 @@ Label(register_frame, text="Confirm Password").pack(anchor="w")
 confirm_entry = Entry(register_frame, show="*", width=30)
 confirm_entry.pack(pady=5)
 
-Button(register_frame, text="Register", bg="green", fg="white", width=30, command=lambda: submit_registration()).pack(pady=10)
-Button(register_frame, text="← Back to login", relief="flat", fg="blue", cursor="hand2", command=lambda: show_login()).pack()
+Button(register_frame, text="Register", bg="green", fg="white", width=30, command=submit_registration).pack(pady=10)
+Button(register_frame, text="← Back to login", relief="flat", fg="blue", cursor="hand2", command=show_login).pack()
 
-#----------------------------------------
-
-
-
-
-
-
-# Сto-do list
+# ---------- To-do tasks ----------
 tasks = [
     ("Read 10 pages", "from my current book"),
     ("Study for 30 minutes", "finish biology assignment"),
@@ -186,9 +154,21 @@ for task, desc in tasks:
     if desc:
         Label(frame, text=desc, font=("Helvetica", 8, "italic"), fg="gray").pack(anchor="w")
 
+def fetch_quote():
+    try:
+        res = requests.get("https://api.quotable.io/random")
+        if res.status_code == 200:
+            data = res.json()
+            quote_label.config(text=f'"{data["content"]}"')
+        else:
+            quote_label.config(text="Could not fetch quote.")
+    except:
+        quote_label.config(text="No internet connection.")
 
-Label(goals_frame, text="\nRemember!", font=("Helvetica", 10, "bold", "italic")).pack()
-Label(goals_frame, text='"Small steps lead to big results. Stay focused and make progress!"', font=("Helvetica", 9, "italic")).pack()
+def show_daily_goals():
+    login_frame.pack_forget()
+    fetch_quote()
+    goals_frame.pack(pady=20)
 
 def open_focus_session(task_name):
     focus_win = Toplevel(w)
@@ -205,18 +185,19 @@ def open_focus_session(task_name):
     timer_text = canvas.create_text(100, 100, text="25:00", font=("Helvetica", 16, "bold"))
 
     duration = 25 * 60
-    interval = 1000  # 1 second
-    progress = [0]   # list for mutability
+    interval = 1000
+    progress = [0]
+    running = [True]
 
     def update_focus_timer():
+        if not running[0]:
+            return
         nonlocal duration
         minutes = duration // 60
         seconds = duration % 60
         canvas.itemconfig(timer_text, text=f"{minutes:02}:{seconds:02}")
-
         percent = (progress[0] / (25 * 60)) * 360
         canvas.itemconfig(arc, extent=-percent)
-
         if duration > 0:
             duration -= 1
             progress[0] += 1
@@ -225,8 +206,21 @@ def open_focus_session(task_name):
             canvas.itemconfig(timer_text, text="Done!")
             canvas.itemconfig(arc, outline="red")
 
+    def stop_timer():
+        running[0] = False
+
+    def reset_timer():
+        nonlocal duration
+        running[0] = True
+        duration = 25 * 60
+        progress[0] = 0
+        update_focus_timer()
+
+    Button(focus_win, text="Pause", command=stop_timer).pack(pady=5)
+    Button(focus_win, text="Restart", command=reset_timer).pack(pady=5)
+
     update_focus_timer()
 
-
-# ----------start the main event loop of the GUI  ----------
+# ---------- Start main loop ----------
 w.mainloop()
+
